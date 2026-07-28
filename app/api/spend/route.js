@@ -63,10 +63,25 @@ async function buildFuelSpend(fuel, meterPointId, serial, productCode, tariffCod
     fetchStandingCharge(fuel, productCode, tariffCode),
   ]);
 
-  const standingRate = standingCharge ? standingCharge.rate : 0;
+  // Octopus's standard-standing-charges resource 404s for some tariffs
+  // rather than returning a value (seen in practice, not just theory) —
+  // rather than silently treating that as "£0/day", let an env var fill the
+  // gap so spend totals stay accurate: OCTOPUS_ELECTRICITY_STANDING_CHARGE_PENCE
+  // / OCTOPUS_GAS_STANDING_CHARGE_PENCE.
+  const overrideEnvVar = `OCTOPUS_${fuel.toUpperCase()}_STANDING_CHARGE_PENCE`;
+  const overrideValue = process.env[overrideEnvVar];
+  let standingRate = 0;
+  let standingChargeSource = "none";
+  if (standingCharge) {
+    standingRate = standingCharge.rate;
+    standingChargeSource = "api";
+  } else if (overrideValue != null && overrideValue !== "" && !Number.isNaN(Number(overrideValue))) {
+    standingRate = Number(overrideValue);
+    standingChargeSource = "override";
+  }
 
   if (!consumption.length) {
-    return { hasData: false, standingChargePencePerDay: standingRate };
+    return { hasData: false, standingChargePencePerDay: standingRate, standingChargeSource };
   }
 
   const rated = attachRates(consumption, rates);
@@ -176,6 +191,7 @@ async function buildFuelSpend(fuel, meterPointId, serial, productCode, tariffCod
           : null,
     },
     standingChargePencePerDay: standingRate,
+    standingChargeSource,
     currentRate: currentRate
       ? { rate: currentRate.rate, validFrom: currentRate.validFrom, validTo: currentRate.validTo }
       : null,

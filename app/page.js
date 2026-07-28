@@ -369,6 +369,13 @@ function FuelCard({ title, live, priceNow, priceValidTo, usagePrimary, usageLabe
       </div>
       {usageSub && <div className="note">{usageSub}</div>}
 
+      {spend && spend.standingChargeSource === "none" && (
+        <div className="note">
+          No standing charge found for this tariff — totals below may be undercounted. Set{" "}
+          {`OCTOPUS_${title.toUpperCase()}_STANDING_CHARGE_PENCE`} to fix.
+        </div>
+      )}
+
       {spend && spend.hasData ? (
         <>
           <div className="tiles">

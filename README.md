@@ -73,6 +73,10 @@ Open `http://localhost:3000`.
    **Project Settings → Environment Variables** and add:
    - `OCTOPUS_API_KEY`
    - `OCTOPUS_ACCOUNT_NUMBER`
+   - Optionally, `OCTOPUS_ELECTRICITY_STANDING_CHARGE_PENCE` and/or
+     `OCTOPUS_GAS_STANDING_CHARGE_PENCE` — see the standing charge note
+     below, only needed if the dashboard shows a "no standing charge found"
+     warning.
 4. Deploy. Vercel gives you a URL like `octopus-dashboard-yourname.vercel.app`.
 
 That URL is what the iPad points at. It's a private-enough value (nobody can
@@ -98,6 +102,15 @@ seconds) — no need to refresh manually.
 
 ## Notes / caveats
 
+- **Standing charge**: Octopus's public `standard-standing-charges` endpoint
+  returns 404 for some tariffs instead of a value (observed in practice on at
+  least one Tracker tariff, not just a hypothetical) — the app can't tell if
+  that means the tariff genuinely has no standing charge, or if Octopus just
+  doesn't expose it for that tariff code. If a card shows a "no standing
+  charge found" warning, check your Octopus account/bill for the actual
+  p/day figure and set `OCTOPUS_ELECTRICITY_STANDING_CHARGE_PENCE` and/or
+  `OCTOPUS_GAS_STANDING_CHARGE_PENCE` in Vercel to that value — the spend
+  totals will pick it up automatically.
 - The live electricity telemetry and account/tariff lookup use Octopus's
   **Kraken GraphQL API**, which isn't officially documented. The queries here
   are based on the field names used by the well-established open-source
