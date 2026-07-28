@@ -9,9 +9,19 @@ Energy electricity price + usage, and gas price + usage.
   live device (the Home Mini only talks to the electricity meter), so this is
   labelled "DELAYED" — smart gas meters report in 30-minute blocks, typically
   with a lag of a few hours.
+- **Spend**: real £ cost (usage × the rate that actually applied, plus daily
+  standing charge) for the last 24h / 7 days / 30 days, per fuel, plus how
+  this week compares to last week.
+- **Planning**: today's rate vs. tomorrow's (once Octopus has published it),
+  how today compares to your 2-week average, and a small bar chart of the
+  last two weeks of daily rates — enough to see "is today/tomorrow a cheap
+  day to run the washing machine / charge the EV / put the immersion heater
+  on".
 - Built against the **Tracker** tariff (a single rate per day per fuel), but
   the pricing code works for any tariff shape (Agile, Flexible, etc.) since it
-  just asks "what rate covers right now?".
+  just asks "what rate covers right now?". The "tomorrow's rate" comparison
+  is most meaningful for a daily tariff like Tracker — on a half-hourly tariff
+  like Agile it just shows the next rate change, not literally tomorrow.
 
 ## Why this architecture
 
@@ -98,3 +108,10 @@ seconds) — no need to refresh manually.
   will show "no reading" rather than failing the whole page.
 - Standard unit rates (`/api/price`) use Octopus's public REST API, which is
   documented and stable.
+- Spend figures (`/api/spend`) are anchored to the newest consumption reading
+  Octopus actually has for each fuel — shown as "data as of" on each card —
+  rather than a strict "last 24 hours from right now". That avoids the
+  spend total looking artificially low just because recent smart meter
+  readings haven't landed yet. If a half-hour interval's cost can't be
+  matched to a published rate, it's excluded from the £ total and flagged
+  as "partial data" so the number never silently under- or over-counts.

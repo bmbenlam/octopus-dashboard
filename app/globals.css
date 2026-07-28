@@ -16,7 +16,8 @@ html, body {
 }
 
 body {
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 a {
