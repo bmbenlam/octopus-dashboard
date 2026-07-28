@@ -81,6 +81,9 @@ async function buildFuelSpend(fuel, meterPointId, serial, productCode, tariffCod
     const standingChargePence = round2(standingRate * days);
     return {
       kwh: usage.kwh,
+      // Blended p/kWh actually paid across this window (varies day to day on
+      // a daily-rate tariff), so the UI can show "kWh x rate = cost" plainly.
+      avgRatePence: usage.kwh > 0 ? round2(usage.costPence / usage.kwh) : null,
       usageCostPence: usage.costPence,
       standingChargePence,
       totalCostPence: round2(usage.costPence + standingChargePence),
@@ -115,6 +118,25 @@ async function buildFuelSpend(fuel, meterPointId, serial, productCode, tariffCod
     ? round2(trailing14d.reduce((s, r) => s + r.rate, 0) / trailing14d.length)
     : null;
 
+  // Forward-looking estimate: your recent daily usage pattern, priced at
+  // today's known rate (Tracker only publishes one day ahead, so holding the
+  // rate flat is the honest assumption for a 30-day-out estimate).
+  const avgDailyKwh = round2(week.kwh / 7);
+  const projectionRate = currentRate ? currentRate.rate : trailing14dAvgRate;
+  const projection =
+    projectionRate != null
+      ? (() => {
+          const dailyCostPence = round2(avgDailyKwh * projectionRate + standingRate);
+          return {
+            avgDailyKwh,
+            ratePence: projectionRate,
+            dailyCostPence,
+            projected30dCostPence: round2(dailyCostPence * 30),
+            basis: "last 7 days average usage at today's rate",
+          };
+        })()
+      : null;
+
   return {
     hasData: true,
     latestDataAt,
@@ -137,6 +159,7 @@ async function buildFuelSpend(fuel, meterPointId, serial, productCode, tariffCod
       ? { rate: nextRate.rate, validFrom: nextRate.validFrom, validTo: nextRate.validTo }
       : null,
     trailing14dAvgRate,
+    projection,
     recentDailyRates: sortedRates.filter((r) => new Date(r.validFrom).getTime() > nowMs - 14 * DAY_MS),
   };
 }

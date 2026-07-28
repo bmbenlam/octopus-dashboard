@@ -153,7 +153,14 @@ function SpendTile({ label, spend }) {
     <div className="tile">
       <div className="label">{label}</div>
       <div className="money">{spend ? formatMoney(spend.totalCostPence) : "£--"}</div>
-      <div className="kwh">{spend ? `${spend.kwh.toFixed(1)} kWh` : "--"}</div>
+      {spend && (
+        <div className="formula">
+          {spend.kwh.toFixed(1)} kWh × {spend.avgRatePence != null ? spend.avgRatePence.toFixed(1) : "--"}p
+        </div>
+      )}
+      {spend && spend.standingChargePence > 0 && (
+        <div className="kwh">+ {formatMoney(spend.standingChargePence)} standing</div>
+      )}
       {spend && spend.incompleteData && <div className="flag">partial data</div>}
       <style jsx>{`
         .tile {
@@ -174,14 +181,56 @@ function SpendTile({ label, spend }) {
           font-weight: 700;
           margin-top: 0.15rem;
         }
-        .kwh {
+        .formula {
           font-size: 0.75rem;
           color: #8890a0;
+        }
+        .kwh {
+          font-size: 0.7rem;
+          color: #6b7280;
         }
         .flag {
           font-size: 0.6rem;
           color: #facc15;
           margin-top: 0.15rem;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function Projection({ projection }) {
+  if (!projection) return null;
+  return (
+    <div className="projection">
+      <div className="formula">
+        {projection.avgDailyKwh.toFixed(1)} kWh/day × {projection.ratePence.toFixed(1)}p ≈{" "}
+        {formatMoney(projection.dailyCostPence)}/day
+      </div>
+      <div className="total">→ ~{formatMoney(projection.projected30dCostPence)} over 30 days</div>
+      <div className="basis">at today's rate, based on {projection.basis}</div>
+      <style jsx>{`
+        .projection {
+          background: rgba(96, 165, 250, 0.08);
+          border: 1px solid rgba(96, 165, 250, 0.25);
+          border-radius: 0.75rem;
+          padding: 0.6rem 0.85rem;
+          margin-top: 0.75rem;
+        }
+        .formula {
+          font-size: 0.85rem;
+          color: #c3c8d4;
+        }
+        .total {
+          font-size: 1rem;
+          font-weight: 700;
+          color: #60a5fa;
+          margin-top: 0.15rem;
+        }
+        .basis {
+          font-size: 0.7rem;
+          color: #6b7280;
+          margin-top: 0.1rem;
         }
       `}</style>
     </div>
@@ -273,6 +322,7 @@ function FuelCard({ title, live, priceNow, priceValidTo, usagePrimary, usageLabe
               {formatPct(spend.weekOverWeek.deltaPct)} vs previous 7 days
             </div>
           )}
+          <Projection projection={spend.projection} />
           <RateHistoryChart
             entries={spend.recentDailyRates}
             currentFrom={spend.currentRate && spend.currentRate.validFrom}
