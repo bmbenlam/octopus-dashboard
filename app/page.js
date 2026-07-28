@@ -237,6 +237,65 @@ function Projection({ projection }) {
   );
 }
 
+function Outlook({ entries }) {
+  if (!entries || !entries.length) return null;
+  return (
+    <div className="outlook">
+      <div className="heading">Next 7 days</div>
+      <div className="row">
+        {entries.map((e, i) => (
+          <div className="day" key={i}>
+            <div className="date">{formatDay(e.date)}</div>
+            <div className={`rate ${e.source === "estimated" ? "estimated" : ""}`}>
+              {formatPence(e.rate)}
+            </div>
+            {e.source === "estimated" && <div className="tag">est.</div>}
+          </div>
+        ))}
+      </div>
+      <style jsx>{`
+        .outlook {
+          margin-top: 0.75rem;
+        }
+        .heading {
+          font-size: 0.7rem;
+          color: #8890a0;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin-bottom: 0.35rem;
+        }
+        .row {
+          display: flex;
+          gap: 0.4rem;
+        }
+        .day {
+          flex: 1;
+          background: #1a1e28;
+          border-radius: 0.5rem;
+          padding: 0.4rem 0.2rem;
+          text-align: center;
+        }
+        .date {
+          font-size: 0.65rem;
+          color: #8890a0;
+        }
+        .rate {
+          font-size: 0.9rem;
+          font-weight: 700;
+          margin-top: 0.1rem;
+        }
+        .rate.estimated {
+          color: #9ca3af;
+        }
+        .tag {
+          font-size: 0.55rem;
+          color: #6b7280;
+        }
+      `}</style>
+    </div>
+  );
+}
+
 function RateHistoryChart({ entries, currentFrom, nextFrom }) {
   if (!entries || !entries.length) return null;
   const shown = entries.slice(-14);
@@ -323,6 +382,7 @@ function FuelCard({ title, live, priceNow, priceValidTo, usagePrimary, usageLabe
             </div>
           )}
           <Projection projection={spend.projection} />
+          <Outlook entries={spend.outlook} />
           <RateHistoryChart
             entries={spend.recentDailyRates}
             currentFrom={spend.currentRate && spend.currentRate.validFrom}

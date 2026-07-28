@@ -55,7 +55,7 @@ async function buildFuelSpend(fuel, meterPointId, serial, productCode, tariffCod
 
   const now = new Date();
   const historyFrom = new Date(now.getTime() - HISTORY_DAYS * DAY_MS);
-  const rateTo = new Date(now.getTime() + DAY_MS); // catch tomorrow's already-published rate
+  const rateTo = new Date(now.getTime() + 8 * DAY_MS); // catch any already-published future rates
 
   const [consumption, rates, standingCharge] = await Promise.all([
     fetchConsumptionForPeriod(fuel, meterPointId, serial, historyFrom.toISOString(), now.toISOString()),
@@ -118,6 +118,30 @@ async function buildFuelSpend(fuel, meterPointId, serial, productCode, tariffCod
     ? round2(trailing14d.reduce((s, r) => s + r.rate, 0) / trailing14d.length)
     : null;
 
+  // Next 7 days, day by day: use Octopus's own published rates where they
+  // exist (a daily tariff like Tracker usually only has tomorrow, sometimes
+  // nothing yet), and fall back to the trailing 14-day average — clearly
+  // labelled "estimated" — for any day Octopus hasn't priced yet.
+  const upcomingPublished = currentRate
+    ? sortedRates.slice(currentIdx + 1).filter((r) => new Date(r.validFrom).getTime() > nowMs)
+    : sortedRates.filter((r) => new Date(r.validFrom).getTime() > nowMs);
+
+  let cursor = currentRate && currentRate.validTo ? new Date(currentRate.validTo) : new Date(nowMs + DAY_MS);
+  let upcomingIdx = 0;
+  const outlook = [];
+  for (let i = 0; i < 7; i++) {
+    const candidate = upcomingPublished[upcomingIdx];
+    const candidateStartMs = candidate ? new Date(candidate.validFrom).getTime() : null;
+    if (candidate && Math.abs(candidateStartMs - cursor.getTime()) < 6 * 60 * 60 * 1000) {
+      outlook.push({ date: candidate.validFrom, rate: candidate.rate, source: "published" });
+      cursor = candidate.validTo ? new Date(candidate.validTo) : new Date(cursor.getTime() + DAY_MS);
+      upcomingIdx++;
+    } else {
+      outlook.push({ date: cursor.toISOString(), rate: trailing14dAvgRate, source: "estimated" });
+      cursor = new Date(cursor.getTime() + DAY_MS);
+    }
+  }
+
   // Forward-looking estimate: your recent daily usage pattern, priced at
   // today's known rate (Tracker only publishes one day ahead, so holding the
   // rate flat is the honest assumption for a 30-day-out estimate).
@@ -160,6 +184,7 @@ async function buildFuelSpend(fuel, meterPointId, serial, productCode, tariffCod
       : null,
     trailing14dAvgRate,
     projection,
+    outlook,
     recentDailyRates: sortedRates.filter((r) => new Date(r.validFrom).getTime() > nowMs - 14 * DAY_MS),
   };
 }
