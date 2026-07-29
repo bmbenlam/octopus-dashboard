@@ -35,19 +35,33 @@ function attachRates(consumption, rates) {
   });
 }
 
+const HALF_HOUR_MS = 30 * 60 * 1000;
+
 function sumWindow(rated, startMs, endMs) {
   let kwh = 0;
   let costPence = 0;
   let missingRateKwh = 0;
+  let intervalCount = 0;
   for (const c of rated) {
     const t = new Date(c.intervalStart).getTime();
     if (t >= startMs && t < endMs) {
       kwh += c.consumptionKwh;
+      intervalCount++;
       if (c.rate != null) costPence += c.consumptionKwh * c.rate;
       else missingRateKwh += c.consumptionKwh;
     }
   }
-  return { kwh: round2(kwh), costPence: round2(costPence), missingRateKwh: round2(missingRateKwh) };
+  // Some meters (gas especially, if its DCC/WAN link is weak) only report a
+  // fraction of their expected half-hourly readings — silently summing what
+  // exists would understate usage without any sign anything was missing.
+  const expectedIntervals = Math.round((endMs - startMs) / HALF_HOUR_MS);
+  const coveragePct = expectedIntervals > 0 ? round2(Math.min(100, (intervalCount / expectedIntervals) * 100)) : null;
+  return {
+    kwh: round2(kwh),
+    costPence: round2(costPence),
+    missingRateKwh: round2(missingRateKwh),
+    coveragePct,
+  };
 }
 
 async function buildFuelSpend(fuel, meterPointId, serial, productCode, tariffCode) {
@@ -103,6 +117,9 @@ async function buildFuelSpend(fuel, meterPointId, serial, productCode, tariffCod
       standingChargePence,
       totalCostPence: round2(usage.costPence + standingChargePence),
       incompleteData: usage.missingRateKwh > 0,
+      // % of expected half-hourly readings actually present. Well under 100%
+      // means the kWh/£ figures above are a floor, not the real total.
+      coveragePct: usage.coveragePct,
     };
   }
 
@@ -159,9 +176,13 @@ async function buildFuelSpend(fuel, meterPointId, serial, productCode, tariffCod
 
   // Forward-looking estimate: your recent daily usage pattern, priced at
   // today's known rate (Tracker only publishes one day ahead, so holding the
-  // rate flat is the honest assumption for a 30-day-out estimate).
-  const avgDailyKwh = round2(week.kwh / 7);
+  // rate flat is the honest assumption for a 30-day-out estimate). Prefer
+  // the 30-day window over 7 days if the meter's reporting is patchy enough
+  // that a week alone would be a noisy/misleading sample.
+  const useMonthForProjection = (week.coveragePct || 0) < 50 && (month.coveragePct || 0) > (week.coveragePct || 0);
+  const avgDailyKwh = round2(useMonthForProjection ? month.kwh / 30 : week.kwh / 7);
   const projectionRate = currentRate ? currentRate.rate : trailing14dAvgRate;
+  const lowCoverage = (useMonthForProjection ? month.coveragePct : week.coveragePct) < 60;
   const projection =
     projectionRate != null
       ? (() => {
@@ -171,7 +192,8 @@ async function buildFuelSpend(fuel, meterPointId, serial, productCode, tariffCod
             ratePence: projectionRate,
             dailyCostPence,
             projected30dCostPence: round2(dailyCostPence * 30),
-            basis: "last 7 days average usage at today's rate",
+            basis: `last ${useMonthForProjection ? 30 : 7} days average usage at today's rate`,
+            lowCoverage,
           };
         })()
       : null;

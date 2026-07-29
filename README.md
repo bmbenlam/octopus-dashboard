@@ -107,10 +107,26 @@ seconds) — no need to refresh manually.
   least one Tracker tariff, not just a hypothetical) — the app can't tell if
   that means the tariff genuinely has no standing charge, or if Octopus just
   doesn't expose it for that tariff code. If a card shows a "no standing
-  charge found" warning, check your Octopus account/bill for the actual
-  p/day figure and set `OCTOPUS_ELECTRICITY_STANDING_CHARGE_PENCE` and/or
-  `OCTOPUS_GAS_STANDING_CHARGE_PENCE` in Vercel to that value — the spend
-  totals will pick it up automatically.
+  charge found" warning, check your latest bill's "About Your Tariff" section
+  for the standing charge in p/day, **add 5% VAT to it** (the app's rates are
+  all VAT-inclusive, matching the "Your unit rate" figure elsewhere on the
+  bill — the bill's own tariff summary is ex-VAT), and set
+  `OCTOPUS_ELECTRICITY_STANDING_CHARGE_PENCE` / `OCTOPUS_GAS_STANDING_CHARGE_PENCE`
+  in Vercel to that number. Example: a bill showing "41.59p/day" becomes
+  `43.67` (41.59 × 1.05).
+- **Rates shown here are VAT-inclusive.** Your bill's per-day rate tables and
+  "About Your Tariff" unit rate are ex-VAT by convention — so the dashboard's
+  price will run about 5% above those figures. That's expected, not a bug;
+  it's the actual amount you pay per kWh.
+- **Gas (or electricity) numbers looking too low**: each spend tile shows a
+  "only N% of readings received" warning when Octopus's consumption API has
+  gaps for that meter in that window — the £/kWh figures next to it are a
+  floor, not the true total, whenever that warning shows. This happens when a
+  meter's connection back to Octopus is patchy (gas meters especially, since
+  they typically relay through the electricity meter/Home Mini rather than
+  having their own strong link) — nothing in this app can invent readings
+  Octopus never received. Compare your bill's per-day usage table against
+  what the dashboard sees if this shows up a lot.
 - The live electricity telemetry and account/tariff lookup use Octopus's
   **Kraken GraphQL API**, which isn't officially documented. The queries here
   are based on the field names used by the well-established open-source

@@ -162,6 +162,9 @@ function SpendTile({ label, spend }) {
         <div className="kwh">+ {formatMoney(spend.standingChargePence)} standing</div>
       )}
       {spend && spend.incompleteData && <div className="flag">partial data</div>}
+      {spend && spend.coveragePct != null && spend.coveragePct < 80 && (
+        <div className="flag">only {spend.coveragePct.toFixed(0)}% of readings received</div>
+      )}
       <style jsx>{`
         .tile {
           background: #1a1e28;
@@ -209,6 +212,11 @@ function Projection({ projection }) {
       </div>
       <div className="total">→ ~{formatMoney(projection.projected30dCostPence)} over 30 days</div>
       <div className="basis">at today's rate, based on {projection.basis}</div>
+      {projection.lowCoverage && (
+        <div className="warn">
+          This meter is only sending a fraction of its readings — likely an underestimate.
+        </div>
+      )}
       <style jsx>{`
         .projection {
           background: rgba(96, 165, 250, 0.08);
@@ -231,6 +239,11 @@ function Projection({ projection }) {
           font-size: 0.7rem;
           color: #6b7280;
           margin-top: 0.1rem;
+        }
+        .warn {
+          font-size: 0.7rem;
+          color: #facc15;
+          margin-top: 0.25rem;
         }
       `}</style>
     </div>
